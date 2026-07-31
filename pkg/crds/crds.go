@@ -1429,6 +1429,14 @@ spec:
             type: object
           spec:
             properties:
+              force:
+                default: false
+                description: |-
+                  Force indicates whether Sveltos should delete and recreate a resource defined in this
+                  PolicyRef/KustomizationRef when an update is rejected with an error that only a
+                  delete+recreate can resolve (eg an invalid combination of fields, or a field enforced
+                  as immutable). By default, such errors are surfaced instead of recreating the resource.
+                type: boolean
               helmChartVersion:
                 description: |-
                   HelmChartVersion indicates the chart version of the Helm release
@@ -2816,6 +2824,11 @@ spec:
           status:
             description: EventReportStatus defines the observed state of EventReport
             properties:
+              failureMessage:
+                description: |-
+                  FailureMessage reports the error hit while generating ClusterProfile(s) from this
+                  EventReport, if any. Set when processing fails; cleared on success.
+                type: string
               phase:
                 description: Phase represents the current phase of report.
                 enum:
@@ -4924,6 +4937,11 @@ spec:
       jsonPath: .status.ready
       name: Ready
       type: boolean
+    - description: Whether connection is healthy
+      jsonPath: .status.connectionStatus
+      name: ConnectionStatus
+      priority: 1
+      type: string
     - description: Kubernetes version associated with this Cluster
       jsonPath: .status.version
       name: Version
@@ -6936,6 +6954,17 @@ spec:
                                                 passCredentialsAll:
                                                     description: PassCredentialsAll is the flag to pass credentials to all domains
                                                     type: boolean
+                                                postRenderStrategy:
+                                                    description: |-
+                                                        PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                                                        are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                                                        when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                                                        Helm's own default (combined) when unset.
+                                                    enum:
+                                                        - combined
+                                                        - separate
+                                                        - nohooks
+                                                    type: string
                                                 runTests:
                                                     default: false
                                                     description: |-
@@ -7306,7 +7335,9 @@ spec:
                                             description: |-
                                                 Components is a list of paths to Kustomize components. These paths are relative to the
                                                 Path field and are included in the Kustomize build to provide reusable configuration logic.
-                                                The paths can be static or leverage Go templates for dynamic customization.
+                                                These values can be static or leverage Go templates for dynamic customization.
+                                                When expressed as templates, the values are filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             items:
                                                 type: string
                                             type: array
@@ -7320,11 +7351,20 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                KustomizationRef when an update is rejected with an error that only a delete+recreate
+                                                can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
                                                 - flux GitRepository;OCIRepository;Bucket
                                                 - ConfigMap/Secret
+                                                Required when RemoteURL is not set.
                                             enum:
                                                 - GitRepository
                                                 - OCIRepository
@@ -7336,7 +7376,7 @@ spec:
                                             description: |-
                                                 Name of the referenced resource.
                                                 Name can be expressed as a template and instantiate using any cluster field.
-                                            minLength: 1
+                                                Required when RemoteURL is not set.
                                             type: string
                                         namespace:
                                             description: |-
@@ -7345,6 +7385,7 @@ spec:
                                                 be implicit set to cluster's namespace.
                                                 For Profile namespace must be left empty. The Profile namespace will be used.
                                                 Namespace can be expressed as a template and instantiate using any cluster field.
+                                                Not used when RemoteURL is set.
                                             type: string
                                         optional:
                                             default: false
@@ -7360,8 +7401,54 @@ spec:
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 These values can be static or leverage Go templates for dynamic customization.
                                                 When expressed as templates, the values are filled in using information from
-                                                resources within the management cluster before deployment (Cluster)
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
+                                        remoteURL:
+                                            description: |-
+                                                RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                                                endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                                                or a ConfigMap/Secret.
+                                                When set, Kind/Name/Namespace must be omitted.
+                                            properties:
+                                                interval:
+                                                    description: |-
+                                                        Interval defines how often Sveltos re-fetches the source to detect changes.
+                                                        Defaults to 5 minutes.
+                                                    type: string
+                                                secretRef:
+                                                    description: |-
+                                                        SecretRef references a Secret in the management cluster containing optional
+                                                        credentials for fetching the source. Both Name and Namespace must be set,
+                                                        allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                                                        a single Secret can be shared across clusters without replication.
+                                                        Supported Secret keys:
+                                                          "token"              — Bearer token (Authorization: Bearer <token>)
+                                                          "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                                                          "caFile"             — PEM-encoded CA certificate for TLS verification
+                                                    properties:
+                                                        name:
+                                                            description: name is unique within a namespace to reference a secret resource.
+                                                            type: string
+                                                        namespace:
+                                                            description: namespace defines the space within which the secret name must be unique.
+                                                            type: string
+                                                    type: object
+                                                    x-kubernetes-map-type: atomic
+                                                url:
+                                                    description: |-
+                                                        URL is the remote source serving the Kustomize directory content.
+                                                        Sveltos fetches the content on every reconciliation and redeploys if the
+                                                        content hash has changed.
+                                                        Supported schemes:
+                                                          "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                                                    (.tar.gz) of the Kustomize directory
+                                                          "oci://"                — OCI registry artifact whose layers are extracted
+                                                                                    the same way, preserving the directory tree
+                                                    pattern: ^(https?|oci)://
+                                                    type: string
+                                            required:
+                                                - url
+                                            type: object
                                         skipNamespaceCreation:
                                             default: false
                                             description: |-
@@ -7464,11 +7551,10 @@ spec:
                                                     - name
                                                 type: object
                                             type: array
-                                    required:
-                                        - kind
-                                        - name
-                                        - namespace
                                     type: object
+                                    x-kubernetes-validations:
+                                        - message: either remoteURL or kind must be set, but not both
+                                          rule: has(self.remoteURL) != has(self.kind)
                                 type: array
                                 x-kubernetes-list-type: atomic
                             maxConsecutiveFailures:
@@ -7616,6 +7702,14 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
@@ -7656,6 +7750,9 @@ spec:
                                                 Path to the directory containing the YAML files.
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 Used only for GitRepository;OCIRepository;Bucket
+                                                This value can be static or leverage Go templates for dynamic customization.
+                                                When expressed as a template, it is filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
                                         remoteURL:
                                             description: |-
@@ -9046,6 +9143,17 @@ spec:
                                                         passCredentialsAll:
                                                             description: PassCredentialsAll is the flag to pass credentials to all domains
                                                             type: boolean
+                                                        postRenderStrategy:
+                                                            description: |-
+                                                                PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                                                                are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                                                                when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                                                                Helm's own default (combined) when unset.
+                                                            enum:
+                                                                - combined
+                                                                - separate
+                                                                - nohooks
+                                                            type: string
                                                         runTests:
                                                             default: false
                                                             description: |-
@@ -9416,7 +9524,9 @@ spec:
                                                     description: |-
                                                         Components is a list of paths to Kustomize components. These paths are relative to the
                                                         Path field and are included in the Kustomize build to provide reusable configuration logic.
-                                                        The paths can be static or leverage Go templates for dynamic customization.
+                                                        These values can be static or leverage Go templates for dynamic customization.
+                                                        When expressed as templates, the values are filled in using information from
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     items:
                                                         type: string
                                                     type: array
@@ -9430,11 +9540,20 @@ spec:
                                                         - Local
                                                         - Remote
                                                     type: string
+                                                force:
+                                                    default: false
+                                                    description: |-
+                                                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                        KustomizationRef when an update is rejected with an error that only a delete+recreate
+                                                        can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                        By default, such errors are surfaced instead of recreating the resource.
+                                                    type: boolean
                                                 kind:
                                                     description: |-
                                                         Kind of the resource. Supported kinds are:
                                                         - flux GitRepository;OCIRepository;Bucket
                                                         - ConfigMap/Secret
+                                                        Required when RemoteURL is not set.
                                                     enum:
                                                         - GitRepository
                                                         - OCIRepository
@@ -9446,7 +9565,7 @@ spec:
                                                     description: |-
                                                         Name of the referenced resource.
                                                         Name can be expressed as a template and instantiate using any cluster field.
-                                                    minLength: 1
+                                                        Required when RemoteURL is not set.
                                                     type: string
                                                 namespace:
                                                     description: |-
@@ -9455,6 +9574,7 @@ spec:
                                                         be implicit set to cluster's namespace.
                                                         For Profile namespace must be left empty. The Profile namespace will be used.
                                                         Namespace can be expressed as a template and instantiate using any cluster field.
+                                                        Not used when RemoteURL is set.
                                                     type: string
                                                 optional:
                                                     default: false
@@ -9470,8 +9590,54 @@ spec:
                                                         Defaults to 'None', which translates to the root path of the SourceRef.
                                                         These values can be static or leverage Go templates for dynamic customization.
                                                         When expressed as templates, the values are filled in using information from
-                                                        resources within the management cluster before deployment (Cluster)
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     type: string
+                                                remoteURL:
+                                                    description: |-
+                                                        RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                                                        endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                                                        or a ConfigMap/Secret.
+                                                        When set, Kind/Name/Namespace must be omitted.
+                                                    properties:
+                                                        interval:
+                                                            description: |-
+                                                                Interval defines how often Sveltos re-fetches the source to detect changes.
+                                                                Defaults to 5 minutes.
+                                                            type: string
+                                                        secretRef:
+                                                            description: |-
+                                                                SecretRef references a Secret in the management cluster containing optional
+                                                                credentials for fetching the source. Both Name and Namespace must be set,
+                                                                allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                                                                a single Secret can be shared across clusters without replication.
+                                                                Supported Secret keys:
+                                                                  "token"              — Bearer token (Authorization: Bearer <token>)
+                                                                  "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                                                                  "caFile"             — PEM-encoded CA certificate for TLS verification
+                                                            properties:
+                                                                name:
+                                                                    description: name is unique within a namespace to reference a secret resource.
+                                                                    type: string
+                                                                namespace:
+                                                                    description: namespace defines the space within which the secret name must be unique.
+                                                                    type: string
+                                                            type: object
+                                                            x-kubernetes-map-type: atomic
+                                                        url:
+                                                            description: |-
+                                                                URL is the remote source serving the Kustomize directory content.
+                                                                Sveltos fetches the content on every reconciliation and redeploys if the
+                                                                content hash has changed.
+                                                                Supported schemes:
+                                                                  "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                                                            (.tar.gz) of the Kustomize directory
+                                                                  "oci://"                — OCI registry artifact whose layers are extracted
+                                                                                            the same way, preserving the directory tree
+                                                            pattern: ^(https?|oci)://
+                                                            type: string
+                                                    required:
+                                                        - url
+                                                    type: object
                                                 skipNamespaceCreation:
                                                     default: false
                                                     description: |-
@@ -9574,11 +9740,10 @@ spec:
                                                             - name
                                                         type: object
                                                     type: array
-                                            required:
-                                                - kind
-                                                - name
-                                                - namespace
                                             type: object
+                                            x-kubernetes-validations:
+                                                - message: either remoteURL or kind must be set, but not both
+                                                  rule: has(self.remoteURL) != has(self.kind)
                                         type: array
                                         x-kubernetes-list-type: atomic
                                     maxConsecutiveFailures:
@@ -9726,6 +9891,14 @@ spec:
                                                         - Local
                                                         - Remote
                                                     type: string
+                                                force:
+                                                    default: false
+                                                    description: |-
+                                                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                        PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                        resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                        By default, such errors are surfaced instead of recreating the resource.
+                                                    type: boolean
                                                 kind:
                                                     description: |-
                                                         Kind of the resource. Supported kinds are:
@@ -9766,6 +9939,9 @@ spec:
                                                         Path to the directory containing the YAML files.
                                                         Defaults to 'None', which translates to the root path of the SourceRef.
                                                         Used only for GitRepository;OCIRepository;Bucket
+                                                        This value can be static or leverage Go templates for dynamic customization.
+                                                        When expressed as a template, it is filled in using information from
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     type: string
                                                 remoteURL:
                                                     description: |-
@@ -10907,6 +11083,14 @@ spec:
                                                                             - Local
                                                                             - Remote
                                                                         type: string
+                                                                    force:
+                                                                        default: false
+                                                                        description: |-
+                                                                            Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                                            PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                                            resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                                            By default, such errors are surfaced instead of recreating the resource.
+                                                                        type: boolean
                                                                     kind:
                                                                         description: |-
                                                                             Kind of the resource. Supported kinds are:
@@ -10947,6 +11131,9 @@ spec:
                                                                             Path to the directory containing the YAML files.
                                                                             Defaults to 'None', which translates to the root path of the SourceRef.
                                                                             Used only for GitRepository;OCIRepository;Bucket
+                                                                            This value can be static or leverage Go templates for dynamic customization.
+                                                                            When expressed as a template, it is filled in using information from
+                                                                            resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                                         type: string
                                                                     remoteURL:
                                                                         description: |-
@@ -11253,6 +11440,14 @@ spec:
                                                                             - Local
                                                                             - Remote
                                                                         type: string
+                                                                    force:
+                                                                        default: false
+                                                                        description: |-
+                                                                            Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                                            PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                                            resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                                            By default, such errors are surfaced instead of recreating the resource.
+                                                                        type: boolean
                                                                     kind:
                                                                         description: |-
                                                                             Kind of the resource. Supported kinds are:
@@ -11293,6 +11488,9 @@ spec:
                                                                             Path to the directory containing the YAML files.
                                                                             Defaults to 'None', which translates to the root path of the SourceRef.
                                                                             Used only for GitRepository;OCIRepository;Bucket
+                                                                            This value can be static or leverage Go templates for dynamic customization.
+                                                                            When expressed as a template, it is filled in using information from
+                                                                            resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                                         type: string
                                                                     remoteURL:
                                                                         description: |-
@@ -11537,6 +11735,7 @@ spec:
                                                 - Update
                                                 - Delete
                                                 - Conflict
+                                                - Error
                                             type: string
                                         message:
                                             description: |-
@@ -11601,6 +11800,7 @@ spec:
                                                 - Update
                                                 - Delete
                                                 - Conflict
+                                                - Error
                                             type: string
                                         message:
                                             description: |-
@@ -11703,6 +11903,7 @@ spec:
                                                 - Update
                                                 - Delete
                                                 - Conflict
+                                                - Error
                                             type: string
                                         message:
                                             description: |-
@@ -12120,6 +12321,17 @@ spec:
                                                         passCredentialsAll:
                                                             description: PassCredentialsAll is the flag to pass credentials to all domains
                                                             type: boolean
+                                                        postRenderStrategy:
+                                                            description: |-
+                                                                PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                                                                are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                                                                when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                                                                Helm's own default (combined) when unset.
+                                                            enum:
+                                                                - combined
+                                                                - separate
+                                                                - nohooks
+                                                            type: string
                                                         runTests:
                                                             default: false
                                                             description: |-
@@ -12490,7 +12702,9 @@ spec:
                                                     description: |-
                                                         Components is a list of paths to Kustomize components. These paths are relative to the
                                                         Path field and are included in the Kustomize build to provide reusable configuration logic.
-                                                        The paths can be static or leverage Go templates for dynamic customization.
+                                                        These values can be static or leverage Go templates for dynamic customization.
+                                                        When expressed as templates, the values are filled in using information from
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     items:
                                                         type: string
                                                     type: array
@@ -12504,11 +12718,20 @@ spec:
                                                         - Local
                                                         - Remote
                                                     type: string
+                                                force:
+                                                    default: false
+                                                    description: |-
+                                                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                        KustomizationRef when an update is rejected with an error that only a delete+recreate
+                                                        can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                        By default, such errors are surfaced instead of recreating the resource.
+                                                    type: boolean
                                                 kind:
                                                     description: |-
                                                         Kind of the resource. Supported kinds are:
                                                         - flux GitRepository;OCIRepository;Bucket
                                                         - ConfigMap/Secret
+                                                        Required when RemoteURL is not set.
                                                     enum:
                                                         - GitRepository
                                                         - OCIRepository
@@ -12520,7 +12743,7 @@ spec:
                                                     description: |-
                                                         Name of the referenced resource.
                                                         Name can be expressed as a template and instantiate using any cluster field.
-                                                    minLength: 1
+                                                        Required when RemoteURL is not set.
                                                     type: string
                                                 namespace:
                                                     description: |-
@@ -12529,6 +12752,7 @@ spec:
                                                         be implicit set to cluster's namespace.
                                                         For Profile namespace must be left empty. The Profile namespace will be used.
                                                         Namespace can be expressed as a template and instantiate using any cluster field.
+                                                        Not used when RemoteURL is set.
                                                     type: string
                                                 optional:
                                                     default: false
@@ -12544,8 +12768,54 @@ spec:
                                                         Defaults to 'None', which translates to the root path of the SourceRef.
                                                         These values can be static or leverage Go templates for dynamic customization.
                                                         When expressed as templates, the values are filled in using information from
-                                                        resources within the management cluster before deployment (Cluster)
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     type: string
+                                                remoteURL:
+                                                    description: |-
+                                                        RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                                                        endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                                                        or a ConfigMap/Secret.
+                                                        When set, Kind/Name/Namespace must be omitted.
+                                                    properties:
+                                                        interval:
+                                                            description: |-
+                                                                Interval defines how often Sveltos re-fetches the source to detect changes.
+                                                                Defaults to 5 minutes.
+                                                            type: string
+                                                        secretRef:
+                                                            description: |-
+                                                                SecretRef references a Secret in the management cluster containing optional
+                                                                credentials for fetching the source. Both Name and Namespace must be set,
+                                                                allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                                                                a single Secret can be shared across clusters without replication.
+                                                                Supported Secret keys:
+                                                                  "token"              — Bearer token (Authorization: Bearer <token>)
+                                                                  "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                                                                  "caFile"             — PEM-encoded CA certificate for TLS verification
+                                                            properties:
+                                                                name:
+                                                                    description: name is unique within a namespace to reference a secret resource.
+                                                                    type: string
+                                                                namespace:
+                                                                    description: namespace defines the space within which the secret name must be unique.
+                                                                    type: string
+                                                            type: object
+                                                            x-kubernetes-map-type: atomic
+                                                        url:
+                                                            description: |-
+                                                                URL is the remote source serving the Kustomize directory content.
+                                                                Sveltos fetches the content on every reconciliation and redeploys if the
+                                                                content hash has changed.
+                                                                Supported schemes:
+                                                                  "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                                                            (.tar.gz) of the Kustomize directory
+                                                                  "oci://"                — OCI registry artifact whose layers are extracted
+                                                                                            the same way, preserving the directory tree
+                                                            pattern: ^(https?|oci)://
+                                                            type: string
+                                                    required:
+                                                        - url
+                                                    type: object
                                                 skipNamespaceCreation:
                                                     default: false
                                                     description: |-
@@ -12648,11 +12918,10 @@ spec:
                                                             - name
                                                         type: object
                                                     type: array
-                                            required:
-                                                - kind
-                                                - name
-                                                - namespace
                                             type: object
+                                            x-kubernetes-validations:
+                                                - message: either remoteURL or kind must be set, but not both
+                                                  rule: has(self.remoteURL) != has(self.kind)
                                         type: array
                                         x-kubernetes-list-type: atomic
                                     maxConsecutiveFailures:
@@ -12800,6 +13069,14 @@ spec:
                                                         - Local
                                                         - Remote
                                                     type: string
+                                                force:
+                                                    default: false
+                                                    description: |-
+                                                        Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                        PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                        resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                        By default, such errors are surfaced instead of recreating the resource.
+                                                    type: boolean
                                                 kind:
                                                     description: |-
                                                         Kind of the resource. Supported kinds are:
@@ -12840,6 +13117,9 @@ spec:
                                                         Path to the directory containing the YAML files.
                                                         Defaults to 'None', which translates to the root path of the SourceRef.
                                                         Used only for GitRepository;OCIRepository;Bucket
+                                                        This value can be static or leverage Go templates for dynamic customization.
+                                                        When expressed as a template, it is filled in using information from
+                                                        resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                                     type: string
                                                 remoteURL:
                                                     description: |-
@@ -13864,13 +14144,51 @@ spec:
                                     directly managed by ClusterProfile.
                                 items:
                                     properties:
+                                        chartName:
+                                            description: |-
+                                                ChartName, RepositoryName, RepoURL, and ChartVersion mirror the fully resolved
+                                                (post-template) HelmChart entry that produced this release, captured at deploy time.
+                                                Never set for Flux-source-backed charts (Flux owns version resolution there).
+                                            type: string
+                                        chartVersion:
+                                            type: string
                                         conflictMessage:
                                             description: |-
                                                 Status indicates whether ClusterSummary can manage the helm
                                                 chart or there is a conflict
                                             type: string
+                                        credentialsSecretRef:
+                                            description: |-
+                                                CredentialsSecretRef is the resolved secret reference (if any) used to authenticate
+                                                against RepoURL, captured at deploy time. Only the reference is stored, never secret
+                                                contents.
+                                            properties:
+                                                name:
+                                                    description: name is unique within a namespace to reference a secret resource.
+                                                    type: string
+                                                namespace:
+                                                    description: namespace defines the space within which the secret name must be unique.
+                                                    type: string
+                                            type: object
+                                            x-kubernetes-map-type: atomic
                                         failureMessage:
                                             description: FailureMessage provides the specific error from the Helm engine for this release
+                                            type: string
+                                        lastCheckedTime:
+                                            description: LastCheckedTime is when LatestVersion/LatestPatchVersion were last evaluated.
+                                            format: date-time
+                                            type: string
+                                        latestPatchVersion:
+                                            description: |-
+                                                LatestPatchVersion is the highest published version sharing ChartVersion's
+                                                major.minor, if greater than ChartVersion. Distinguishes "a same-minor patch bump is
+                                                available" from "a newer minor/major line exists" (LatestVersion).
+                                            type: string
+                                        latestVersion:
+                                            description: |-
+                                                LatestVersion is the highest version currently published upstream for this chart, if
+                                                greater than ChartVersion. Populated by a periodic background check, independent of
+                                                the reconcile loop. Detection only: Sveltos never mutates ChartVersion based on this.
                                             type: string
                                         patchesHash:
                                             description: PatchesHash represents of a unique value for the patches section
@@ -13883,6 +14201,10 @@ spec:
                                         releaseNamespace:
                                             description: ReleaseNamespace is the namespace release will be installed
                                             minLength: 1
+                                            type: string
+                                        repoURL:
+                                            type: string
+                                        repositoryName:
                                             type: string
                                         status:
                                             description: |-
@@ -14328,6 +14650,17 @@ spec:
                                                 passCredentialsAll:
                                                     description: PassCredentialsAll is the flag to pass credentials to all domains
                                                     type: boolean
+                                                postRenderStrategy:
+                                                    description: |-
+                                                        PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                                                        are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                                                        when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                                                        Helm's own default (combined) when unset.
+                                                    enum:
+                                                        - combined
+                                                        - separate
+                                                        - nohooks
+                                                    type: string
                                                 runTests:
                                                     default: false
                                                     description: |-
@@ -14699,7 +15032,9 @@ spec:
                                             description: |-
                                                 Components is a list of paths to Kustomize components. These paths are relative to the
                                                 Path field and are included in the Kustomize build to provide reusable configuration logic.
-                                                The paths can be static or leverage Go templates for dynamic customization.
+                                                These values can be static or leverage Go templates for dynamic customization.
+                                                When expressed as templates, the values are filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             items:
                                                 type: string
                                             type: array
@@ -14713,11 +15048,20 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                KustomizationRef when an update is rejected with an error that only a delete+recreate
+                                                can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
                                                 - flux GitRepository;OCIRepository;Bucket
                                                 - ConfigMap/Secret
+                                                Required when RemoteURL is not set.
                                             enum:
                                                 - GitRepository
                                                 - OCIRepository
@@ -14729,7 +15073,7 @@ spec:
                                             description: |-
                                                 Name of the referenced resource.
                                                 Name can be expressed as a template and instantiate using any cluster field.
-                                            minLength: 1
+                                                Required when RemoteURL is not set.
                                             type: string
                                         namespace:
                                             description: |-
@@ -14738,6 +15082,7 @@ spec:
                                                 be implicit set to cluster's namespace.
                                                 For Profile namespace must be left empty. The Profile namespace will be used.
                                                 Namespace can be expressed as a template and instantiate using any cluster field.
+                                                Not used when RemoteURL is set.
                                             type: string
                                         optional:
                                             default: false
@@ -14753,8 +15098,54 @@ spec:
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 These values can be static or leverage Go templates for dynamic customization.
                                                 When expressed as templates, the values are filled in using information from
-                                                resources within the management cluster before deployment (Cluster)
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
+                                        remoteURL:
+                                            description: |-
+                                                RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                                                endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                                                or a ConfigMap/Secret.
+                                                When set, Kind/Name/Namespace must be omitted.
+                                            properties:
+                                                interval:
+                                                    description: |-
+                                                        Interval defines how often Sveltos re-fetches the source to detect changes.
+                                                        Defaults to 5 minutes.
+                                                    type: string
+                                                secretRef:
+                                                    description: |-
+                                                        SecretRef references a Secret in the management cluster containing optional
+                                                        credentials for fetching the source. Both Name and Namespace must be set,
+                                                        allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                                                        a single Secret can be shared across clusters without replication.
+                                                        Supported Secret keys:
+                                                          "token"              — Bearer token (Authorization: Bearer <token>)
+                                                          "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                                                          "caFile"             — PEM-encoded CA certificate for TLS verification
+                                                    properties:
+                                                        name:
+                                                            description: name is unique within a namespace to reference a secret resource.
+                                                            type: string
+                                                        namespace:
+                                                            description: namespace defines the space within which the secret name must be unique.
+                                                            type: string
+                                                    type: object
+                                                    x-kubernetes-map-type: atomic
+                                                url:
+                                                    description: |-
+                                                        URL is the remote source serving the Kustomize directory content.
+                                                        Sveltos fetches the content on every reconciliation and redeploys if the
+                                                        content hash has changed.
+                                                        Supported schemes:
+                                                          "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                                                    (.tar.gz) of the Kustomize directory
+                                                          "oci://"                — OCI registry artifact whose layers are extracted
+                                                                                    the same way, preserving the directory tree
+                                                    pattern: ^(https?|oci)://
+                                                    type: string
+                                            required:
+                                                - url
+                                            type: object
                                         skipNamespaceCreation:
                                             default: false
                                             description: |-
@@ -14857,11 +15248,10 @@ spec:
                                                     - name
                                                 type: object
                                             type: array
-                                    required:
-                                        - kind
-                                        - name
-                                        - namespace
                                     type: object
+                                    x-kubernetes-validations:
+                                        - message: either remoteURL or kind must be set, but not both
+                                          rule: has(self.remoteURL) != has(self.kind)
                                 type: array
                                 x-kubernetes-list-type: atomic
                             maxUpdate:
@@ -15015,6 +15405,14 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
@@ -15055,6 +15453,9 @@ spec:
                                                 Path to the directory containing the YAML files.
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 Used only for GitRepository;OCIRepository;Bucket
+                                                This value can be static or leverage Go templates for dynamic customization.
+                                                When expressed as a template, it is filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
                                         remoteURL:
                                             description: |-
@@ -16561,6 +16962,17 @@ spec:
                                                 passCredentialsAll:
                                                     description: PassCredentialsAll is the flag to pass credentials to all domains
                                                     type: boolean
+                                                postRenderStrategy:
+                                                    description: |-
+                                                        PostRenderStrategy controls whether Helm hooks are included when Patches/PatchesFrom
+                                                        are applied as a post-renderer during this chart's install/upgrade. Only relevant
+                                                        when Patches or PatchesFrom is set on the Spec; ignored otherwise. Defaults to
+                                                        Helm's own default (combined) when unset.
+                                                    enum:
+                                                        - combined
+                                                        - separate
+                                                        - nohooks
+                                                    type: string
                                                 runTests:
                                                     default: false
                                                     description: |-
@@ -16931,7 +17343,9 @@ spec:
                                             description: |-
                                                 Components is a list of paths to Kustomize components. These paths are relative to the
                                                 Path field and are included in the Kustomize build to provide reusable configuration logic.
-                                                The paths can be static or leverage Go templates for dynamic customization.
+                                                These values can be static or leverage Go templates for dynamic customization.
+                                                When expressed as templates, the values are filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             items:
                                                 type: string
                                             type: array
@@ -16945,11 +17359,20 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                KustomizationRef when an update is rejected with an error that only a delete+recreate
+                                                can resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
                                                 - flux GitRepository;OCIRepository;Bucket
                                                 - ConfigMap/Secret
+                                                Required when RemoteURL is not set.
                                             enum:
                                                 - GitRepository
                                                 - OCIRepository
@@ -16961,7 +17384,7 @@ spec:
                                             description: |-
                                                 Name of the referenced resource.
                                                 Name can be expressed as a template and instantiate using any cluster field.
-                                            minLength: 1
+                                                Required when RemoteURL is not set.
                                             type: string
                                         namespace:
                                             description: |-
@@ -16970,6 +17393,7 @@ spec:
                                                 be implicit set to cluster's namespace.
                                                 For Profile namespace must be left empty. The Profile namespace will be used.
                                                 Namespace can be expressed as a template and instantiate using any cluster field.
+                                                Not used when RemoteURL is set.
                                             type: string
                                         optional:
                                             default: false
@@ -16985,8 +17409,54 @@ spec:
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 These values can be static or leverage Go templates for dynamic customization.
                                                 When expressed as templates, the values are filled in using information from
-                                                resources within the management cluster before deployment (Cluster)
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
+                                        remoteURL:
+                                            description: |-
+                                                RemoteURL configures fetching the Kustomize directory content from an HTTP/HTTPS
+                                                endpoint or an OCI registry, without requiring a Flux GitRepository/OCIRepository/Bucket
+                                                or a ConfigMap/Secret.
+                                                When set, Kind/Name/Namespace must be omitted.
+                                            properties:
+                                                interval:
+                                                    description: |-
+                                                        Interval defines how often Sveltos re-fetches the source to detect changes.
+                                                        Defaults to 5 minutes.
+                                                    type: string
+                                                secretRef:
+                                                    description: |-
+                                                        SecretRef references a Secret in the management cluster containing optional
+                                                        credentials for fetching the source. Both Name and Namespace must be set,
+                                                        allowing the Secret to live in any namespace (e.g. projectsveltos) so that
+                                                        a single Secret can be shared across clusters without replication.
+                                                        Supported Secret keys:
+                                                          "token"              — Bearer token (Authorization: Bearer <token>)
+                                                          "username"+"password" — HTTP Basic Auth or OCI registry basic auth
+                                                          "caFile"             — PEM-encoded CA certificate for TLS verification
+                                                    properties:
+                                                        name:
+                                                            description: name is unique within a namespace to reference a secret resource.
+                                                            type: string
+                                                        namespace:
+                                                            description: namespace defines the space within which the secret name must be unique.
+                                                            type: string
+                                                    type: object
+                                                    x-kubernetes-map-type: atomic
+                                                url:
+                                                    description: |-
+                                                        URL is the remote source serving the Kustomize directory content.
+                                                        Sveltos fetches the content on every reconciliation and redeploys if the
+                                                        content hash has changed.
+                                                        Supported schemes:
+                                                          "http://" or "https://" — HTTP/HTTPS endpoint serving a gzipped tarball
+                                                                                    (.tar.gz) of the Kustomize directory
+                                                          "oci://"                — OCI registry artifact whose layers are extracted
+                                                                                    the same way, preserving the directory tree
+                                                    pattern: ^(https?|oci)://
+                                                    type: string
+                                            required:
+                                                - url
+                                            type: object
                                         skipNamespaceCreation:
                                             default: false
                                             description: |-
@@ -17089,11 +17559,10 @@ spec:
                                                     - name
                                                 type: object
                                             type: array
-                                    required:
-                                        - kind
-                                        - name
-                                        - namespace
                                     type: object
+                                    x-kubernetes-validations:
+                                        - message: either remoteURL or kind must be set, but not both
+                                          rule: has(self.remoteURL) != has(self.kind)
                                 type: array
                                 x-kubernetes-list-type: atomic
                             maxConsecutiveFailures:
@@ -17241,6 +17710,14 @@ spec:
                                                 - Local
                                                 - Remote
                                             type: string
+                                        force:
+                                            default: false
+                                            description: |-
+                                                Force indicates whether Sveltos should delete and recreate a resource defined in this
+                                                PolicyRef when an update is rejected with an error that only a delete+recreate can
+                                                resolve (eg an invalid combination of fields, or a field enforced as immutable).
+                                                By default, such errors are surfaced instead of recreating the resource.
+                                            type: boolean
                                         kind:
                                             description: |-
                                                 Kind of the resource. Supported kinds are:
@@ -17281,6 +17758,9 @@ spec:
                                                 Path to the directory containing the YAML files.
                                                 Defaults to 'None', which translates to the root path of the SourceRef.
                                                 Used only for GitRepository;OCIRepository;Bucket
+                                                This value can be static or leverage Go templates for dynamic customization.
+                                                When expressed as a template, it is filled in using information from
+                                                resources within the management cluster before deployment (Cluster and TemplateResourceRefs)
                                             type: string
                                         remoteURL:
                                             description: |-

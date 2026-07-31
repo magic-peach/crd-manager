@@ -1,18 +1,25 @@
 [![CI](https://github.com/projectsveltos/crd-manager/actions/workflows/main.yaml/badge.svg)](https://github.com/projectsveltos/crd-manager/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/projectsveltos/crd-manager)](https://goreportcard.com/report/github.com/projectsveltos/crd-manager)
-[![Slack](https://img.shields.io/badge/join%20slack-%23projectsveltos-brighteen)](https://join.slack.com/t/projectsveltos/shared_invite/zt-1hraownbr-W8NTs6LTimxLPB8Erj8Q6Q)
+[![CodeQL](https://github.com/projectsveltos/crd-manager/actions/workflows/codeql.yaml/badge.svg)](https://github.com/projectsveltos/crd-manager/actions/workflows/codeql.yaml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/projectsveltos/crd-manager.svg)](https://store.docker.com/community/images/projectsveltos/crd-manager)
 [![License](https://img.shields.io/badge/license-Apache-blue.svg)](LICENSE)
+[![Slack](https://img.shields.io/badge/join%20slack-%23projectsveltos-brighteen)](https://join.slack.com/t/projectsveltos/shared_invite/zt-1hraownbr-W8NTs6LTimxLPB8Erj8Q6Q)
+[![LinkedIn](https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff)](https://www.linkedin.com/company/projectsveltos/)
+[![X URL](https://img.shields.io/twitter/url/https/twitter.com/projectsveltos.svg?style=social&label=Follow%20%40projectsveltos)](https://x.com/projectsveltos)
 
-# libsveltos
+👋 Welcome to **Projectsveltos**!
 
-<img src="https://raw.githubusercontent.com/projectsveltos/sveltos/main/docs/assets/logo.png" width="200">
+<div align="center">
 
-Please refere to sveltos [documentation](https://projectsveltos.github.io/sveltos/).
+| 🌐 Website | 📚 Documentation | 📅 Book a Demo | 💼 Enterprise Support | 🏢 Adopters |
+|:---:|:---:|:---:|:---:|:---:|
+| [Visit](https://website.projectsveltos.io) | [Get Started](https://projectsveltos.github.io/sveltos/) | [Schedule 30 min](https://cal.com/gianluca-mardente-nuclsu/30min) | [Contact Us](mailto:gianluca@projectsveltos.io) | [View List](https://website.projectsveltos.io/companies) |
+
+</div>
 
 ## What this repository is
 Libraries containing all pieces common across different repositories
 
-## Contributing 
+## Contributing
 
 ❤️ Your contributions are always welcome! If you want to contribute, have questions, noticed any bug or want to get the latest project news, you can connect with us in the following ways:
 
