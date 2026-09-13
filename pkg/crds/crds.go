@@ -20,7 +20,7 @@ var crdsYAML = []byte(`apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: accessrequests.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -158,7 +158,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: classifierreports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -290,7 +290,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: classifiers.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -709,7 +709,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: clusterhealthchecks.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -1147,7 +1147,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: clustersets.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -1393,7 +1393,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: configurationbundles.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -1548,7 +1548,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: configurationgroups.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -2531,6 +2531,18 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
+              transitionFrom:
+                description: |-
+                  TransitionFrom names the Profiles or ClusterProfiles this instance replaces.
+                  For matching target clusters, teardown of the replaced profiles is deferred
+                  until this instance reaches Provisioned. This instance is also permitted to
+                  adopt resources owned by the replaced profiles, ignoring tier restrictions.
+                  Same-kind only: a ClusterProfile names other ClusterProfiles, a Profile names
+                  other Profiles in the same namespace.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               updatePhase:
                 default: Ready
                 description: |-
@@ -2809,6 +2821,7 @@ spec:
                 - Removing
                 - Removed
                 - AgentRemoving
+                - Blocked
                 type: string
             type: object
         type: object
@@ -2821,7 +2834,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: debuggingconfigurations.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -2908,7 +2921,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: eventreports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -3057,7 +3070,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: eventsources.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -3301,7 +3314,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: healthcheckreports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -3453,7 +3466,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: healthchecks.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -3668,7 +3681,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: managementclusterclassifierreports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -3774,7 +3787,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: managementclusterclassifiers.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -4012,7 +4025,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: reloaderreports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -4121,7 +4134,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: reloaders.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -4196,7 +4209,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: resourcesummaries.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -4699,7 +4712,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: rolerequests.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -4975,7 +4988,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: sets.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -5221,7 +5234,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: sveltosclusters.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -5830,13 +5843,69 @@ spec:
                     - location
                     - projectID
                     type: object
+                  oidc:
+                    description: |-
+                      OIDC contains configuration for a generic OIDC client credentials grant.
+                      Required when Provider is OIDC.
+                    properties:
+                      caSecretRef:
+                        description: |-
+                          CASecretRef references a Secret in the management cluster containing the CA
+                          certificate of the IdP's token endpoint under the key "ca.crt". This is distinct
+                          from WorkloadIdentityConfig.CASecretRef, which trusts the managed cluster's own
+                          API server rather than the IdP. If not set, the system certificate pool is used.
+                        properties:
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      scopes:
+                        description: |-
+                          Scopes is the list of OAuth2 scopes to request alongside the client credentials
+                          grant. Leave empty if the IdP does not require one.
+                        items:
+                          type: string
+                        type: array
+                      secretRef:
+                        description: |-
+                          SecretRef references a Secret in the management cluster containing the client
+                          credentials, under the keys "client_id" and "client_secret".
+                          If Namespace is omitted, the cluster's namespace is used.
+                        properties:
+                          name:
+                            description: name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      tokenURL:
+                        description: TokenURL is the IdP's OAuth2 token endpoint.
+                        minLength: 1
+                        type: string
+                    required:
+                    - secretRef
+                    - tokenURL
+                    type: object
                   provider:
-                    description: Provider is the cloud provider implementing the workload
+                    description: |-
+                      Provider is the cloud provider, or generic OIDC IdP, implementing the workload
                       identity mechanism.
                     enum:
                     - AWS
                     - GCP
                     - Azure
+                    - OIDC
                     type: string
                 required:
                 - endpoint
@@ -5849,6 +5918,8 @@ spec:
                   rule: (self.provider == 'GCP') == has(self.gcp)
                 - message: azure must be set if and only if provider is Azure
                   rule: (self.provider == 'Azure') == has(self.azure)
+                - message: oidc must be set if and only if provider is OIDC
+                  rule: (self.provider == 'OIDC') == has(self.oidc)
             type: object
             x-kubernetes-validations:
             - message: 'workloadIdentity, kubeconfigName: conflict'
@@ -5920,7 +5991,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: sveltoslicenses.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -6002,7 +6073,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: techsupports.lib.projectsveltos.io
 spec:
   group: lib.projectsveltos.io
@@ -6657,7 +6728,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: clusterconfigurations.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -6746,7 +6817,7 @@ spec:
                                                             type: object
                                                         type: array
                                                     featureID:
-                                                        description: FeatureID is an indentifier of the feature whose status is reported
+                                                        description: FeatureID is an identifier of the feature whose status is reported
                                                         enum:
                                                             - Resources
                                                             - Helm
@@ -6860,7 +6931,7 @@ spec:
                                                             type: object
                                                         type: array
                                                     featureID:
-                                                        description: FeatureID is an indentifier of the feature whose status is reported
+                                                        description: FeatureID is an identifier of the feature whose status is reported
                                                         enum:
                                                             - Resources
                                                             - Helm
@@ -6932,7 +7003,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: clusterprofiles.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -8960,6 +9031,18 @@ spec:
                                 format: int32
                                 minimum: 1
                                 type: integer
+                            transitionFrom:
+                                description: |-
+                                    TransitionFrom names the Profiles or ClusterProfiles this instance replaces.
+                                    For matching target clusters, teardown of the replaced profiles is deferred
+                                    until this instance reaches Provisioned. This instance is also permitted to
+                                    adopt resources owned by the replaced profiles, ignoring tier restrictions.
+                                    Same-kind only: a ClusterProfile names other ClusterProfiles, a Profile names
+                                    other Profiles in the same namespace.
+                                items:
+                                    type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                             validateHealths:
                                 description: |-
                                     ValidateHealths is a slice of checks to run against the managed cluster
@@ -9435,7 +9518,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: clusterpromotions.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -11357,6 +11440,18 @@ spec:
                                         format: int32
                                         minimum: 1
                                         type: integer
+                                    transitionFrom:
+                                        description: |-
+                                            TransitionFrom names the Profiles or ClusterProfiles this instance replaces.
+                                            For matching target clusters, teardown of the replaced profiles is deferred
+                                            until this instance reaches Provisioned. This instance is also permitted to
+                                            adopt resources owned by the replaced profiles, ignoring tier restrictions.
+                                            Same-kind only: a ClusterProfile names other ClusterProfiles, a Profile names
+                                            other Profiles in the same namespace.
+                                        items:
+                                            type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                     validateHealths:
                                         description: |-
                                             ValidateHealths is a slice of checks to run against the managed cluster
@@ -12524,7 +12619,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: clusterreports.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -12821,7 +12916,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: clustersummaries.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -14883,6 +14978,18 @@ spec:
                                         format: int32
                                         minimum: 1
                                         type: integer
+                                    transitionFrom:
+                                        description: |-
+                                            TransitionFrom names the Profiles or ClusterProfiles this instance replaces.
+                                            For matching target clusters, teardown of the replaced profiles is deferred
+                                            until this instance reaches Provisioned. This instance is also permitted to
+                                            adopt resources owned by the replaced profiles, ignoring tier restrictions.
+                                            Same-kind only: a ClusterProfile names other ClusterProfiles, a Profile names
+                                            other Profiles in the same namespace.
+                                        items:
+                                            type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                     validateHealths:
                                         description: |-
                                             ValidateHealths is a slice of checks to run against the managed cluster
@@ -15170,7 +15277,7 @@ spec:
                                             description: FailureReason indicates the type of error that occurred.
                                             type: string
                                         featureID:
-                                            description: FeatureID is an indentifier of the feature whose status is reported
+                                            description: FeatureID is an identifier of the feature whose status is reported
                                             enum:
                                                 - Resources
                                                 - Helm
@@ -15202,6 +15309,7 @@ spec:
                                                 - Removing
                                                 - Removed
                                                 - AgentRemoving
+                                                - Blocked
                                             type: string
                                     required:
                                         - featureID
@@ -15331,7 +15439,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: eventtriggers.lib.projectsveltos.io
 spec:
     group: lib.projectsveltos.io
@@ -16381,7 +16489,7 @@ spec:
                                     Multiple resources in a managed cluster can be a match for referenced
                                     EventSource. OneForEvent indicates whether a ClusterProfile for all
                                     resource (OneForEvent = false) or one per resource (OneForEvent = true)
-                                    needs to be creted.
+                                    needs to be created.
                                 type: boolean
                                 x-kubernetes-validations:
                                     - message: Value is immutable
@@ -17935,7 +18043,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
     annotations:
-        controller-gen.kubebuilder.io/version: v0.21.0
+        controller-gen.kubebuilder.io/version: v0.22.0
     name: profiles.config.projectsveltos.io
 spec:
     group: config.projectsveltos.io
@@ -19963,6 +20071,18 @@ spec:
                                 format: int32
                                 minimum: 1
                                 type: integer
+                            transitionFrom:
+                                description: |-
+                                    TransitionFrom names the Profiles or ClusterProfiles this instance replaces.
+                                    For matching target clusters, teardown of the replaced profiles is deferred
+                                    until this instance reaches Provisioned. This instance is also permitted to
+                                    adopt resources owned by the replaced profiles, ignoring tier restrictions.
+                                    Same-kind only: a ClusterProfile names other ClusterProfiles, a Profile names
+                                    other Profiles in the same namespace.
+                                items:
+                                    type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
                             validateHealths:
                                 description: |-
                                     ValidateHealths is a slice of checks to run against the managed cluster
